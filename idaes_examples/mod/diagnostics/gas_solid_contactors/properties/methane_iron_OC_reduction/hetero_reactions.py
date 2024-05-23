@@ -117,10 +117,13 @@ class ReactionParameterData(ReactionParameterBlock):
         self.rate_reaction_idx = Set(initialize=["R1"])
 
         # Gas Constant
-        self.gas_const = Param(within=PositiveReals,
-                               mutable=False,
-                               default=8.314459848e-3,
-                               doc='Gas Constant [kJ/mol.K]')
+        self.gas_const = Param(
+            within=PositiveReals,
+            mutable=False,
+            default=8.314459848e-3,
+            doc='Gas Constant [kJ/mol.K]',
+            units=pyo.units.kJ / pyo.units.mol / pyo.units.K,
+        )
 
         # Smoothing factor
         self.eps = Param(mutable=True,
@@ -147,54 +150,77 @@ class ReactionParameterData(ReactionParameterBlock):
                                       doc='Reaction stoichiometric'
                                       'coefficient [-]')
 
-        # Standard Heat of Reaction - kJ/mol_rxn
+        # Standard Heat of Reaction - J/mol_rxn
+        # Note that any energies that participate in control volume equations
+        # need to be in J rather than kJ
         dh_rxn_dict = {"R1": 136.5843}
-        self.dh_rxn = Param(self.rate_reaction_idx,
-                            initialize=dh_rxn_dict,
-                            doc="Heat of reaction [kJ/mol]")
+        self.dh_rxn = Param(
+            self.rate_reaction_idx,
+            initialize=dh_rxn_dict,
+            doc="Heat of reaction [kJ/mol]",
+            units=pyo.units.kJ / pyo.units.mol,
+        )
 
     # -------------------------------------------------------------------------
         """ Reaction properties that can be estimated"""
 
         # Particle grain radius within OC particle
-        self.grain_radius = Var(domain=Reals,
-                                initialize=2.6e-7,
-                                doc='Representative particle grain'
-                                'radius within OC particle [m]')
+        self.grain_radius = Var(
+            domain=Reals,
+            initialize=2.6e-7,
+            doc='Representative particle grain radius within OC particle [m]',
+            units=pyo.units.m,
+        )
         self.grain_radius.fix()
 
         # Molar density OC particle
-        self.dens_mol_sol = Var(domain=Reals,
-                                initialize=32811,
-                                doc='Molar density of OC particle [mol/m^3]')
+        self.dens_mol_sol = Var(
+            domain=Reals,
+            initialize=32811,
+            doc='Molar density of OC particle [mol/m^3]',
+            units=pyo.units.mol/pyo.units.m**3,
+        )
         self.dens_mol_sol.fix()
 
         # Available volume for reaction - from EPAT report (1-ep)'
-        self.a_vol = Var(domain=Reals,
-                         initialize=0.28,
-                         doc='Available reaction vol. per vol. of OC')
+        self.a_vol = Var(
+            domain=Reals,
+            initialize=0.28,
+            doc='Available reaction vol. per vol. of OC',
+            units=pyo.units.dimensionless,
+        )
         self.a_vol.fix()
 
         # Activation Energy
-        self.energy_activation = Var(self.rate_reaction_idx,
-                                     domain=Reals,
-                                     initialize=4.9e1,
-                                     doc='Activation energy [kJ/mol]')
+        self.energy_activation = Var(
+            self.rate_reaction_idx,
+            domain=Reals,
+            initialize=4.9e1,
+            doc='Activation energy [kJ/mol]',
+            units=pyo.units.kJ/pyo.units.mol,
+        )
         self.energy_activation.fix()
 
         # Reaction order
-        self.rxn_order = Var(self.rate_reaction_idx,
-                             domain=Reals,
-                             initialize=1.3,
-                             doc='Reaction order in gas species [-]')
+        self.rxn_order = Var(
+            self.rate_reaction_idx,
+            domain=Reals,
+            initialize=1.3,
+            doc='Reaction order in gas species [-]',
+            units=pyo.units.dimensionless,
+        )
         self.rxn_order.fix()
 
         # Pre-exponential factor
-        self.k0_rxn = Var(self.rate_reaction_idx,
-                          domain=Reals,
-                          initialize=8e-4,
-                          doc='Pre-exponential factor'
-                          '[mol^(1-N_reaction)m^(3*N_reaction -2)/s]')
+        self.k0_rxn = Var(
+            self.rate_reaction_idx,
+            domain=Reals,
+            initialize=8e-4,
+            doc='Pre-exponential factor [mol^(1-N_reaction)m^(3*N_reaction -2)/s]',
+            units=(
+                pyo.units.mol**(1-1.3) * pyo.units.m**(3*1.3-2) / pyo.units.s
+            ),
+        )
         self.k0_rxn.fix()
 
     @classmethod
@@ -411,24 +437,31 @@ class ReactionBlockData(ReactionBlockDataBase):
     # Rate constant method
     def _k_rxn(self):
         self.k_rxn = Var(self._params.rate_reaction_idx,
-                         domain=Reals,
-                         initialize=1,
-                         doc='Rate constant '
-                         '[mol^(1-N_reaction)m^(3*N_reaction -2)/s]')
+            domain=Reals,
+            initialize=1,
+            doc='Rate constant [mol^(1-N_reaction)m^(3*N_reaction -2)/s]',
+            units=(
+                pyo.units.mol**(1-1.3) * pyo.units.m**(3*1.3 - 2) / pyo.units.s
+            ),
+        )
 
         def rate_constant_eqn(b, j):
             if j == 'R1':
-                return 1e6 * self.k_rxn[j] == \
-                        1e6 * (self._params.k0_rxn[j] *
-                               exp(-self._params.energy_activation[j] /
-                                   (self._params.gas_const *
-                                    self.solid_state_ref.temperature)))
+                return 1e6 * self.k_rxn[j] == (
+                    1e6 * (
+                        self._params.k0_rxn[j]
+                        * exp(
+                            -self._params.energy_activation[j] /
+                            (self._params.gas_const * self.solid_state_ref.temperature)
+                        )
+                    )
+                )
             else:
                 return Constraint.Skip
         try:
             # Try to build constraint
             self.rate_constant_eqn = Constraint(self._params.rate_reaction_idx,
-                                                rule=rate_constant_eqn)
+                rule=rate_constant_eqn)
         except AttributeError:
             # If constraint fails, clean up so that DAE can try again later
             self.del_component(self.k_rxn)
@@ -437,8 +470,11 @@ class ReactionBlockData(ReactionBlockDataBase):
 
     # Conversion of oxygen carrier
     def _OC_conv(self):
-        self.OC_conv = Var(domain=Reals, initialize=0.0,
-                           doc='Fraction of metal oxide converted')
+        self.OC_conv = Var(
+            domain=Reals, initialize=0.0,
+            doc='Fraction of metal oxide converted',
+            units=pyo.units.dimensionless,
+        )
 
         def OC_conv_eqn(b):
             return 1e6 * b.OC_conv * \
@@ -461,9 +497,12 @@ class ReactionBlockData(ReactionBlockDataBase):
 
     # Conversion of oxygen carrier reformulated
     def _OC_conv_temp(self):
-        self.OC_conv_temp = Var(domain=Reals, initialize=1.0,
-                                doc='Reformulation term for'
-                                    'X to help eqn scaling')
+        self.OC_conv_temp = Var(
+            domain=Reals,
+            initialize=1.0,
+            doc='Reformulation term for X to help eqn scaling',
+            units=pyo.units.dimensionless,
+        )
 
         def OC_conv_temp_eqn(b):
             return 1e3*b.OC_conv_temp**3 == 1e3*(1-b.OC_conv)**2
@@ -478,24 +517,29 @@ class ReactionBlockData(ReactionBlockDataBase):
     # General rate of reaction method
     def _reaction_rate(self):
         self.reaction_rate = Var(self._params.rate_reaction_idx,
-                                 domain=Reals,
-                                 initialize=0,
-                                 doc="Gen. rate of reaction [mol_rxn/m3.s]")
+            domain=Reals,
+            initialize=0,
+            doc="Gen. rate of reaction [mol_rxn/m3.s]",
+            units=pyo.units.mol/pyo.units.m**3/pyo.units.s,
+        )
 
         def rate_rule(b, r):
             return b.reaction_rate[r]*1e4 == b._params._scale_factor_rxn*1e4*(
-                b.solid_state_ref.mass_frac_comp['Fe2O3'] *
-                (1 - b.solid_state_ref._params.particle_porosity) *
-                b.solid_state_ref.dens_mass_skeletal *
-                (b._params.a_vol /
-                 (b.solid_state_ref._params.mw_comp['Fe2O3'])) *
-                3*b._params.rxn_stoich_coeff[r]*b.k_rxn[r] *
-                (((b.gas_state_ref.dens_mol_comp['CH4']**2 +
-                  b._params.eps**2)**0.5) **
-                 b._params.rxn_order[r]) *
-                b.OC_conv_temp/(b._params.dens_mol_sol *
-                                b._params.grain_radius) /
-                (-b._params.rate_reaction_stoichiometry['R1', 'Sol', 'Fe2O3']))
+                b.solid_state_ref.mass_frac_comp['Fe2O3']
+                * (1 - b.solid_state_ref._params.particle_porosity)
+                * b.solid_state_ref.dens_mass_skeletal
+                * (
+                    b._params.a_vol / b.solid_state_ref._params.mw_comp['Fe2O3']
+                )
+                * 3*b._params.rxn_stoich_coeff[r]*b.k_rxn[r]
+                * (
+                    (
+                        ((b.gas_state_ref.dens_mol_comp['CH4'] / (pyo.units.mol / pyo.units.m**3))**2 + b._params.eps**2)**0.5
+                        * pyo.units.mol / pyo.units.m**3
+                    ) ** b._params.rxn_order[r]
+                )
+                * b.OC_conv_temp / (b._params.dens_mol_sol * b._params.grain_radius)
+                / (-b._params.rate_reaction_stoichiometry['R1', 'Sol', 'Fe2O3']))
         try:
             # Try to build constraint
             self.gen_rate_expression = Constraint(

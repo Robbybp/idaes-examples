@@ -40,7 +40,7 @@ def set_default_design_variables(m):
 def set_default_inlet_conditions(m, fix_porosity=False):
     m.fs.MB.gas_inlet.flow_mol[:].fix(128.20513)  # mol/s
     m.fs.MB.gas_inlet.temperature[:].fix(298.15)  # K
-    m.fs.MB.gas_inlet.pressure[:].fix(2.00)  # bar
+    m.fs.MB.gas_inlet.pressure[:].fix(2.00 * 1e5)  # Pa
     m.fs.MB.gas_inlet.mole_frac_comp[:, "CO2"].fix(0.02499)
     m.fs.MB.gas_inlet.mole_frac_comp[:, "H2O"].fix(0.00001)
     m.fs.MB.gas_inlet.mole_frac_comp[:, "CH4"].fix(0.975)

@@ -86,20 +86,27 @@ class PhysicalParameterData(PhysicalParameterBlock):
         self.H2O = Component()
 
         # Thermodynamic reference state
-        self.pressure_ref = Param(within=PositiveReals,
-                                  mutable=True,
-                                  default=1.01325,
-                                  doc='Reference pressure [bar]')
+        self.pressure_ref = Param(
+            within=PositiveReals,
+            mutable=True,
+            default=1.01325 * 1e5,
+            doc='Reference pressure [Pa]',
+            units=pyunits.Pa,
+        )
         self.temperature_ref = Param(within=PositiveReals,
-                                     mutable=True,
-                                     default=298.15,
-                                     doc='Thermodynamic Reference'
-                                     'Temperature [K]')
+            mutable=True,
+            default=298.15,
+            doc='Thermodynamic Reference Temperature [K]',
+            units=pyunits.K,
+        )
 
         # Gas Constant
-        self.gas_const = Param(within=PositiveReals,
-                               default=8.314459848e-3,
-                               doc='Gas Constant [kJ/mol.K]')
+        self.gas_const = Param(
+            within=PositiveReals,
+            default=8.314459848e-3,
+            doc='Gas Constant [kJ/mol.K]',
+            units=pyunits.kJ/pyunits.mol/pyunits.K,
+        )
 
     # -------------------------------------------------------------------------
         """ Pure gas component properties"""
@@ -107,19 +114,23 @@ class PhysicalParameterData(PhysicalParameterBlock):
         # Mol. weights of gas - units = kg/mol. ref: NIST webbook
         mw_comp_dict = {'CH4': 0.016, 'CO2': 0.044, 'H2O': 0.018}
         self.mw_comp = Param(
-                self.component_list,
-                mutable=False,
-                initialize=mw_comp_dict,
-                doc="Molecular weights of gas components [kg/mol]")
+            self.component_list,
+            mutable=False,
+            initialize=mw_comp_dict,
+            doc="Molecular weights of gas components [kg/mol]",
+            units=pyunits.kg/pyunits.mol,
+        )
 
         # Std. heat of formation of comp. - units = kJ/(mol comp) - ref: NIST
         enth_mol_form_comp_dict = {'CH4': -74.8731, 'CO2': -393.5224,
                                    'H2O': -241.8264}
         self.enth_mol_form_comp = Param(
-                self.component_list,
-                mutable=False,
-                initialize=enth_mol_form_comp_dict,
-                doc="Component molar heats of formation [kJ/mol]")
+            self.component_list,
+            mutable=False,
+            initialize=enth_mol_form_comp_dict,
+            doc="Component molar heats of formation [kJ/mol]",
+            units=pyunits.kJ/pyunits.mol,
+        )
 
         # Ideal gas spec. heat capacity parameters(Shomate) of
         # components - ref: NIST webbook. Shomate equations from NIST.
@@ -130,107 +141,145 @@ class PhysicalParameterData(PhysicalParameterBlock):
         # H_comp = H - H(298.15) = A*T + B*T^2/2 + C*T^3/3 +
         # D*T^4/4 - E/T + F - H where T = Temp (K)/1000 and H_comp = (kJ/mol)
         cp_param_dict = {
-                        ('CH4', 1): -0.7030290,
-                        ('CH4', 2): 108.4773000,
-                        ('CH4', 3): -42.5215700,
-                        ('CH4', 4): 5.8627880,
-                        ('CH4', 5): 0.6785650,
-                        ('CH4', 6): -76.8437600,
-                        ('CH4', 7): 158.7163000,
-                        ('CH4', 8): -74.8731000,
-                        ('CO2', 1): 24.9973500,
-                        ('CO2', 2): 55.1869600,
-                        ('CO2', 3): -33.6913700,
-                        ('CO2', 4): 7.9483870,
-                        ('CO2', 5): -0.1366380,
-                        ('CO2', 6): -403.6075000,
-                        ('CO2', 7): 228.2431000,
-                        ('CO2', 8): -393.5224000,
-                        ('H2O', 1): 30.0920000,
-                        ('H2O', 2): 6.8325140,
-                        ('H2O', 3): 6.7934350,
-                        ('H2O', 4): -2.5344800,
-                        ('H2O', 5): 0.0821390,
-                        ('H2O', 6): -250.8810000,
-                        ('H2O', 7): 223.3967000,
-                        ('H2O', 8): -241.8264000
-                        }
+            ('CH4', 1): -0.7030290,
+            ('CH4', 2): 108.4773000,
+            ('CH4', 3): -42.5215700,
+            ('CH4', 4): 5.8627880,
+            ('CH4', 5): 0.6785650,
+            ('CH4', 6): -76.8437600,
+            ('CH4', 7): 158.7163000,
+            ('CH4', 8): -74.8731000,
+            ('CO2', 1): 24.9973500,
+            ('CO2', 2): 55.1869600,
+            ('CO2', 3): -33.6913700,
+            ('CO2', 4): 7.9483870,
+            ('CO2', 5): -0.1366380,
+            ('CO2', 6): -403.6075000,
+            ('CO2', 7): 228.2431000,
+            ('CO2', 8): -393.5224000,
+            ('H2O', 1): 30.0920000,
+            ('H2O', 2): 6.8325140,
+            ('H2O', 3): 6.7934350,
+            ('H2O', 4): -2.5344800,
+            ('H2O', 5): 0.0821390,
+            ('H2O', 6): -250.8810000,
+            ('H2O', 7): 223.3967000,
+            ('H2O', 8): -241.8264000
+        }
         self.cp_param = Param(self.component_list,
-                              range(1, 10),
-                              mutable=False,
-                              initialize=cp_param_dict,
-                              doc="Shomate equation heat capacity parameters")
+            range(1, 10),
+            mutable=False,
+            initialize=cp_param_dict,
+            doc="Shomate equation heat capacity parameters",
+            # HACK: We just set these parameters to have the same units for each
+            # index, even though this is not correct. We will manually correct
+            # units in the couple of expressions where these are used.
+            #units=pyunits.J/pyunits.mol/pyunits.K/pyunits.kK,
+            units=pyunits.kJ / pyunits.mol,
+        )
 
         # Viscosity constants:
         # Reference: Perry and Green Handbook; McGraw Hill, 2008
-        visc_d_param_dict = {('CH4', 1): 5.2546e-7, ('CH4', 2): 0.59006,
-                             ('CH4', 3): 105.67, ('CH4', 4): 0,
-                             ('CO2', 1): 2.148e-6, ('CO2', 2): 0.46,
-                             ('CO2', 3): 290, ('CO2', 4): 0,
-                             ('H2O', 1): 1.7096e-8, ('H2O', 2): 1.1146,
-                             ('H2O', 3): 0, ('H2O', 4): 0}
+        visc_d_param_dict = {
+            ('CH4', 1): 5.2546e-7,
+            ('CH4', 2): 0.59006,
+            ('CH4', 3): 105.67,
+            ('CH4', 4): 0,
+            ('CO2', 1): 2.148e-6,
+            ('CO2', 2): 0.46,
+            ('CO2', 3): 290,
+            ('CO2', 4): 0,
+            ('H2O', 1): 1.7096e-8,
+            ('H2O', 2): 1.1146,
+            ('H2O', 3): 0,
+            ('H2O', 4): 0,
+        }
         self.visc_d_param = Param(self.component_list,
-                                  range(1, 10),
-                                  mutable=True,
-                                  initialize=visc_d_param_dict,
-                                  doc="Dynamic viscosity constants")
+            range(1, 10),
+            mutable=True,
+            initialize=visc_d_param_dict,
+            doc="Dynamic viscosity constants",
+            # HACK: These parameters really have units, but we will just
+            # manually alter the constraints where they appear to avoid
+            # needing to determine what they are...
+            units=pyunits.dimensionless,
+        )
 
         # Thermal conductivity constants:
         # Reference: Perry and Green Handbook; McGraw Hill, 2008
-        therm_cond_param_dict = {('CH4', 1): 8.3983e-6, ('CH4', 2): 1.4268,
-                                 ('CH4', 3): -49.654, ('CH4', 4): 0,
-                                 ('CO2', 1): 3.69, ('CO2', 2): -0.3838,
-                                 ('CO2', 3): 964, ('CO2', 4): 1.86e6,
-                                 ('H2O', 1): 6.204e-6, ('H2O', 2): 1.3973,
-                                 ('H2O', 3): 0, ('H2O', 4): 0}
+        therm_cond_param_dict = {
+            ('CH4', 1): 8.3983e-6,
+            ('CH4', 2): 1.4268,
+            ('CH4', 3): -49.654,
+            ('CH4', 4): 0,
+            ('CO2', 1): 3.69,
+            ('CO2', 2): -0.3838,
+            ('CO2', 3): 964,
+            ('CO2', 4): 1.86e6,
+            ('H2O', 1): 6.204e-6,
+            ('H2O', 2): 1.3973,
+            ('H2O', 3): 0,
+            ('H2O', 4): 0,
+        }
         self.therm_cond_param = Param(self.component_list,
-                                      range(1, 10),
-                                      mutable=True,
-                                      initialize=therm_cond_param_dict,
-                                      doc="Thermal conductivity constants")
+            range(1, 10),
+            mutable=True,
+            initialize=therm_cond_param_dict,
+            doc="Thermal conductivity constants",
+            # HACK: These parameters really have units, but we will just
+            # manually alter the constraints where they appear to avoid
+            # needing to determine what they are...
+            units=pyunits.dimensionless,
+        )
 
         # Component diffusion volumes:
         # Ref: (1) Prop gas & liquids (2) Fuller et al. IECR, 58(5), 19, 1966
         diff_vol_param_dict = {'CH4': 24.42, 'CO2': 26.9, 'H2O': 13.1}
-        self.diff_vol_param = Param(self.component_list,
-                                    mutable=True,
-                                    initialize=diff_vol_param_dict,
-                                    doc="Component diffusion volumes")
+        self.diff_vol_param = Param(
+            self.component_list,
+            mutable=True,
+            initialize=diff_vol_param_dict,
+            doc="Component diffusion volumes",
+            units=pyunits.dimensionless,
+        )
 
     @classmethod
     def define_metadata(cls, obj):
         obj.add_properties({
-                'flow_mol': {'method': None, 'units': 'mol/s'},
-                'pressure': {'method': None, 'units': 'bar'},
-                'temperature': {'method': None, 'units': 'K'},
-                'mole_frac_comp': {'method': None, 'units': None},
-                'mw': {'method': '_mw', 'units': 'kg/mol'},
-                'cp_mol': {'method': '_cp_mol', 'units': 'kJ/mol.K'},
-                'cp_mol_comp': {'method': '_cp_mol_comp',
-                                'units': 'kJ/mol.K'},
-                'cp_mass': {'method': '_cp_mass', 'units': 'kJ/kg.K'},
-                'dens_mol': {'method': '_dens_mol',
-                             'units': 'mol/m^3'},
-                'dens_mol_comp': {'method': '_dens_mol_comp',
-                                  'units': 'mol/m^3'},
-                'dens_mass': {'method': '_dens_mass',
-                              'units': 'kg/m^3'},
-                'enth_mol': {'method': '_enth_mol', 'units': 'kJ/mol'},
-                'enth_mol_comp': {'method': '_enth_mol_comp',
-                                  'units': 'kJ/mol'},
-                'visc_d': {'method': '_visc_d', 'units': 'kg/m.s'},
-                'therm_cond': {'method': '_therm_cond', 'units': 'kJ/m.K.s'},
-                'diffusion_comp': {'method': '_diffusion_comp',
-                                   'units': 'cm2/s'}})
+            'flow_mol': {'method': None, 'units': 'mol/s'},
+            'pressure': {'method': None, 'units': 'bar'},
+            'temperature': {'method': None, 'units': 'K'},
+            'mole_frac_comp': {'method': None, 'units': None},
+            'mw': {'method': '_mw', 'units': 'kg/mol'},
+            'cp_mol': {'method': '_cp_mol', 'units': 'kJ/mol.K'},
+            'cp_mol_comp': {'method': '_cp_mol_comp',
+                'units': 'kJ/mol.K'},
+            'cp_mass': {'method': '_cp_mass', 'units': 'kJ/kg.K'},
+            'dens_mol': {'method': '_dens_mol',
+                'units': 'mol/m^3'},
+            'dens_mol_comp': {'method': '_dens_mol_comp',
+                'units': 'mol/m^3'},
+            'dens_mass': {'method': '_dens_mass',
+                'units': 'kg/m^3'},
+            'enth_mol': {'method': '_enth_mol', 'units': 'kJ/mol'},
+            'enth_mol_comp': {'method': '_enth_mol_comp',
+                'units': 'kJ/mol'},
+            'visc_d': {'method': '_visc_d', 'units': 'kg/m.s'},
+            'therm_cond': {'method': '_therm_cond', 'units': 'kJ/m.K.s'},
+            'diffusion_comp': {'method': '_diffusion_comp',
+                'units': 'cm2/s'}})
 
-        obj.add_default_units({'time': pyunits.s,
-                               'length': pyunits.m,
-                               'mass': pyunits.kg,
-                               'amount': pyunits.mol,
-                               'temperature': pyunits.K,
-                               #'energy': pyunits.kJ,
-                               #'holdup': pyunits.mol,
-                           })
+        obj.add_default_units(
+            {
+                'time': pyunits.s,
+                'length': pyunits.m,
+                'mass': pyunits.kg,
+                'amount': pyunits.mol,
+                'temperature': pyunits.K,
+                #'energy': pyunits.kJ,
+                #'holdup': pyunits.mol,
+            }
+        )
 
 
 class _GasPhaseThermoStateBlock(StateBlock):
@@ -428,20 +477,31 @@ class GasPhaseThermoStateBlockData(StateBlockData):
                              self.config.parameters.mw_comp)
 
         """List the necessary state variable objects."""
-        self.flow_mol = Var(initialize=1.0,
-                            domain=Reals,
-                            doc='Component molar flowrate [mol/s]')
+        self.flow_mol = Var(
+            initialize=1.0,
+            domain=Reals,
+            doc='Component molar flowrate [mol/s]',
+            units=pyunits.mol/pyunits.s
+        )
         self.mole_frac_comp = Var(
-                self._params.component_list,
-                domain=Reals,
-                initialize=1 / len(self._params.component_list),
-                doc='State component mole fractions [-]')
-        self.pressure = Var(initialize=1.01325,
-                            domain=Reals,
-                            doc='State pressure [bar]')
-        self.temperature = Var(initialize=298.15,
-                               domain=Reals,
-                               doc='State temperature [K]')
+            self._params.component_list,
+            domain=Reals,
+            initialize=1 / len(self._params.component_list),
+            doc='State component mole fractions [-]',
+            units=pyunits.dimensionless,
+        )
+        self.pressure = Var(
+            initialize=1.01325 * 1e5,
+            domain=Reals,
+            doc='State pressure [Pa]',
+            units=pyunits.Pa,
+        )
+        self.temperature = Var(
+            initialize=298.15,
+            domain=Reals,
+            doc='State temperature [K]',
+            units=pyunits.K,
+        )
 
         # Create standard constraints
         # Sum mole fractions if not inlet block
@@ -453,9 +513,12 @@ class GasPhaseThermoStateBlockData(StateBlockData):
 
     def _mw(self):
         # Molecular weight of gas mixture
-        self.mw = Var(domain=Reals,
-                      initialize=1.0,
-                      doc="Molecular weight of gas mixture [kg/mol]")
+        self.mw = Var(
+            domain=Reals,
+            initialize=1.0,
+            doc="Molecular weight of gas mixture [kg/mol]",
+            units=pyunits.kg/pyunits.mol,
+        )
 
         def mw_eqn(b):
             return (b.mw ==
@@ -472,13 +535,17 @@ class GasPhaseThermoStateBlockData(StateBlockData):
 
     def _dens_mol(self):
         # Molar density
-        self.dens_mol = Var(domain=Reals,
-                            initialize=1.0,
-                            doc="Molar density/concentration [mol/m3]")
+        self.dens_mol = Var(
+            domain=Reals,
+            initialize=1.0,
+            doc="Molar density/concentration [mol/m3]",
+            units=pyunits.mol / pyunits.m**3,
+        )
 
         def ideal_gas(b):
-            return (b.dens_mol*b._params.gas_const*b.temperature*1e-2 ==
-                    b.pressure)
+            return (b.dens_mol*b._params.gas_const*b.temperature * (
+                1e-2 * pyunits.bar / (pyunits.kJ / pyunits.m**3)
+            ) == (1e-5 * pyunits.bar / pyunits.Pa) * b.pressure)
         try:
             # Try to build constraint
             self.ideal_gas = Constraint(rule=ideal_gas)
@@ -490,11 +557,13 @@ class GasPhaseThermoStateBlockData(StateBlockData):
 
     def _dens_mol_comp(self):
         # Mixture heat capacities
-        self.dens_mol_comp = Var(self._params.component_list,
-                                 domain=Reals,
-                                 initialize=1.0,
-                                 doc='Component molar concentration'
-                                 '[mol/m3]')
+        self.dens_mol_comp = Var(
+            self._params.component_list,
+            domain=Reals,
+            initialize=1.0,
+            doc='Component molar concentration [mol/m3]',
+            units=pyunits.mol / pyunits.m**3,
+        )
 
         def comp_conc_eqn(b, j):
             return (b.dens_mol_comp[j] ==
@@ -511,9 +580,12 @@ class GasPhaseThermoStateBlockData(StateBlockData):
 
     def _dens_mass(self):
         # Mass density
-        self.dens_mass = Var(domain=Reals,
-                             initialize=1.0,
-                             doc="Mass density [kg/m3]")
+        self.dens_mass = Var(
+            domain=Reals,
+            initialize=1.0,
+            doc="Mass density [kg/m3]",
+            units=pyunits.kg / pyunits.m**3,
+        )
 
         def dens_mass_basis(b):
             return b.dens_mass == b.mw*b.dens_mol
@@ -528,26 +600,35 @@ class GasPhaseThermoStateBlockData(StateBlockData):
 
     def _visc_d(self):
         # Mixture dynamic viscosity
-        self.visc_d = Var(domain=Reals,
-                          initialize=1e-5,
-                          doc="Mixture dynamic viscosity [kg/m.s]")
+        self.visc_d = Var(
+            domain=Reals,
+            initialize=1e-5,
+            doc="Mixture dynamic viscosity [kg/m.s]",
+            units=pyunits.kg / pyunits.m / pyunits.s,
+        )
 
         def visc_d_comp(i):
-            return self._params.visc_d_param[i, 1] * \
-                    (self.temperature**self._params.visc_d_param[i, 2]) \
-                    / ((1 + (self._params.visc_d_param[i, 3]/self.temperature))
-                        + (self._params.visc_d_param[i, 4] /
-                           (self.temperature**2)))
+            return (
+                self._params.visc_d_param[i, 1]
+                * (self.temperature / pyunits.K)**self._params.visc_d_param[i, 2]
+                / (
+                    1
+                    + pyunits.K * self._params.visc_d_param[i, 3] / self.temperature
+                    + pyunits.K**2 * self._params.visc_d_param[i, 4] / self.temperature**2
+                )
+            )
 
         def visc_d_constraint(b):
-            return 1e6*b.visc_d == 1e6*sum(b.mole_frac_comp[i]*visc_d_comp(i)
-                                           / (sum(b.mole_frac_comp[j]
-                                                  * (b._params.mw_comp[j] /
-                                                     b._params.mw_comp[i])**0.5
-                                                  for j in
-                                                  b._params.component_list))
-                                           for i in
-                                           b._params.component_list)
+            return 1e6*b.visc_d == 1e6*sum(
+                b.mole_frac_comp[i]*visc_d_comp(i) * (pyunits.kg / pyunits.m / pyunits.s)
+                / (
+                    sum(
+                        b.mole_frac_comp[j]
+                        * (b._params.mw_comp[j] / b._params.mw_comp[i])**0.5
+                    for j in b._params.component_list)
+                )
+                for i in b._params.component_list
+            )
         try:
             # Try to build constraint
             self.visc_d_constraint = Constraint(rule=visc_d_constraint)
@@ -559,11 +640,13 @@ class GasPhaseThermoStateBlockData(StateBlockData):
 
     def _diffusion_comp(self):
         # Component diffusion in a gas mixture - units of cm2/s to help scaling
-        self.diffusion_comp = Var(self._params.component_list,
-                                  domain=Reals,
-                                  initialize=1e-5,
-                                  doc='Component diffusion in a gas mixture'
-                                  '[cm2/s]')
+        self.diffusion_comp = Var(
+            self._params.component_list,
+            domain=Reals,
+            initialize=1e-5,
+            doc='Component diffusion in a gas mixture [cm2/s]',
+            units=pyunits.cm**2 / pyunits.s,
+        )
 
         def D_bin(i, j):
             # 1e3 used to multiply MW to convert from kg/mol to kg/kmol
@@ -572,7 +655,7 @@ class GasPhaseThermoStateBlockData(StateBlockData):
                        1e3 * self._params.mw_comp[j])
                      / (2 * (1e3 * self._params.mw_comp[i]) *
                         (1e3*self._params.mw_comp[j])))**0.5)
-                    / ((self.pressure)
+                    / ((1e-5 * pyunits.Pa / pyunits.bar * self.pressure)
                         * ((self._params.diff_vol_param[i]**(1/3))
                             + (self._params.diff_vol_param[j]**(1/3)))**2))
 
@@ -594,17 +677,21 @@ class GasPhaseThermoStateBlockData(StateBlockData):
 
     def _therm_cond(self):
         # Thermal conductivity of gas
-        self.therm_cond = Var(domain=Reals,
-                              initialize=1e-5,
-                              doc="Thermal conductivity of gas [kJ/m.K.s]")
+        self.therm_cond = Var(
+            domain=Reals,
+            initialize=1e-5,
+            doc="Thermal conductivity of gas [kJ/m.K.s]",
+            units=pyunits.kJ / pyunits.m / pyunits.K / pyunits.s,
+        )
 
         def therm_cond_comp(i):
             return self._params.therm_cond_param[i, 1] \
-                    * (self.temperature**self._params.therm_cond_param[i, 2]) \
-                    / ((1 + (self._params.therm_cond_param[i, 3] /
-                             self.temperature))
-                        + (self._params.therm_cond_param[i, 4] /
-                       (self.temperature**2)))
+                    * (self.temperature/pyunits.K)**self._params.therm_cond_param[i, 2] \
+                    / (
+                        1
+                        + pyunits.K * self._params.therm_cond_param[i, 3] / self.temperature
+                        + pyunits.K**2 * self._params.therm_cond_param[i, 4] / self.temperature**2
+                    )
 
         def A_bin(i, j):
             return (1 + ((therm_cond_comp(j)/therm_cond_comp(i))**0.5)
@@ -616,14 +703,14 @@ class GasPhaseThermoStateBlockData(StateBlockData):
         def therm_cond_constraint(b):
             # The 1e-3 term is used as a conversion factor to a kJ basis
             return 1e6*b.therm_cond == 1e6*(1e-3) * \
-                                       sum(b.mole_frac_comp[i]
-                                           * therm_cond_comp(i)
-                                           / (sum(b.mole_frac_comp[j] *
-                                                  A_bin(i, j)**0.5
-                                                  for j in
-                                                  b._params.component_list))
-                                           for i in
-                                           b._params.component_list)
+                sum(b.mole_frac_comp[i]
+                    * therm_cond_comp(i) * pyunits.kJ/pyunits.m/pyunits.s/pyunits.K
+                    / (sum(b.mole_frac_comp[j] *
+                        A_bin(i, j)**0.5
+                        for j in
+                        b._params.component_list))
+                    for i in
+                    b._params.component_list)
         try:
             # Try to build constraint
             self.therm_cond_constraint = Constraint(rule=therm_cond_constraint)
@@ -635,11 +722,13 @@ class GasPhaseThermoStateBlockData(StateBlockData):
 
     def _cp_mol_comp(self):
         # Pure component vapour heat capacities
-        self.cp_mol_comp = Var(self._params.component_list,
-                               domain=Reals,
-                               initialize=1.0,
-                               doc="Pure component vapour heat capacities "
-                               "[kJ/mol.K]")
+        self.cp_mol_comp = Var(
+            self._params.component_list,
+            domain=Reals,
+            initialize=1.0,
+            doc="Pure component vapour heat capacities [kJ/mol.K]",
+            units=pyunits.kJ / pyunits.mol / pyunits.K,
+        )
 
         def pure_component_cp_mol(b, j):
             return b.cp_mol_comp[j] == 1e-3*(
@@ -660,9 +749,12 @@ class GasPhaseThermoStateBlockData(StateBlockData):
 
     def _cp_mol(self):
         # Mixture heat capacities
-        self.cp_mol = Var(domain=Reals,
-                          initialize=1.0,
-                          doc="Mixture heat capacity [kJ/mol.K]")
+        self.cp_mol = Var(
+            domain=Reals,
+            initialize=1.0,
+            doc="Mixture heat capacity [kJ/mol.K]",
+            units=pyunits.kJ / pyunits.mol / pyunits.K,
+        )
 
         def cp_mol(b):
             return b.cp_mol == sum(b.cp_mol_comp[j]*b.mole_frac_comp[j]
@@ -679,9 +771,12 @@ class GasPhaseThermoStateBlockData(StateBlockData):
 
     def _cp_mass(self):
         # Mixture heat capacities
-        self.cp_mass = Var(domain=Reals,
-                           initialize=1.0,
-                           doc="Mixture heat capacity, mass-basis [kJ/kg.K]")
+        self.cp_mass = Var(
+            domain=Reals,
+            initialize=1.0,
+            doc="Mixture heat capacity, mass-basis [kJ/kg.K]",
+            units=pyunits.kJ / pyunits.kg / pyunits.K,
+        )
 
         def cp_mass(b):
             return b.cp_mass*b.mw == b.cp_mol
@@ -697,20 +792,25 @@ class GasPhaseThermoStateBlockData(StateBlockData):
     def _enth_mol_comp(self):
         # Pure component vapour enthalpies
         self.enth_mol_comp = Var(
-                self._params.component_list,
-                domain=Reals,
-                initialize=1.0,
-                doc="Pure component enthalpies [kJ/mol]")
+            self._params.component_list,
+            domain=Reals,
+            initialize=1.0,
+            doc="Pure component enthalpies [kJ/mol]",
+            units=pyunits.kJ / pyunits.mol,
+        )
 
         def pure_comp_enthalpy(b, j):
             return b.enth_mol_comp[j] == (
-                    b._params.cp_param[j, 1]*(b.temperature*1e-3) +
-                    b._params.cp_param[j, 2]*((b.temperature*1e-3)**2)/2 +
-                    b._params.cp_param[j, 3]*((b.temperature*1e-3)**3)/3 +
-                    b._params.cp_param[j, 4]*((b.temperature*1e-3)**4)/4 -
-                    b._params.cp_param[j, 5]/(b.temperature*1e-3) +
-                    b._params.cp_param[j, 6] -
-                    b._params.cp_param[j, 8])
+                # HACK: Manually converting units here to work around incorrect units
+                # in cp_param
+                (1/pyunits.K) * b._params.cp_param[j, 1]*(b.temperature*1e-3) +
+                (1/pyunits.K**2) * b._params.cp_param[j, 2]*((b.temperature*1e-3)**2)/2 +
+                (1/pyunits.K**3) * b._params.cp_param[j, 3]*((b.temperature*1e-3)**3)/3 +
+                (1/pyunits.K**4) * b._params.cp_param[j, 4]*((b.temperature*1e-3)**4)/4 -
+                pyunits.K * b._params.cp_param[j, 5]/(b.temperature*1e-3) +
+                b._params.cp_param[j, 6] -
+                b._params.cp_param[j, 8]
+            )
         try:
             # Try to build constraint
             self.enthalpy_shomate_eqn = Constraint(self._params.component_list,
@@ -724,16 +824,18 @@ class GasPhaseThermoStateBlockData(StateBlockData):
     def _enth_mol(self):
         # Mixture molar enthalpy
         self.enth_mol = Var(
-                            domain=Reals,
-                            initialize=1.0,
-                            doc='Mixture specific enthalpy [kJ/mol]')
+            domain=Reals,
+            initialize=1.0,
+            doc='Mixture specific enthalpy [kJ/mol]',
+            units=pyunits.kJ / pyunits.mol,
+        )
         try:
             # Try to build constraint
             self.mixture_enthalpy_eqn = Constraint(expr=(
-                        self.enth_mol == sum(self.mole_frac_comp[j] *
-                                             self.enth_mol_comp[j]
-                                             for j in
-                                             self._params.component_list)))
+                self.enth_mol == sum(self.mole_frac_comp[j] *
+                    self.enth_mol_comp[j]
+                    for j in
+                    self._params.component_list)))
         except AttributeError:
             # If constraint fails, clean up so that DAE can try again later
             self.del_component(self.enth_mol)
@@ -744,13 +846,13 @@ class GasPhaseThermoStateBlockData(StateBlockData):
         return b.flow_mol*b.mole_frac_comp[j]
 
     def get_enthalpy_flow_terms(b, p):
-        return b.flow_mol*b.enth_mol
+        return b.flow_mol*b.enth_mol * (1000 * pyunits.J) / pyunits.kJ
 
     def get_material_density_terms(b, p, j):
         return b.dens_mol_comp[j]
 
     def get_energy_density_terms(b, p):
-        return b.dens_mol*b.enth_mol
+        return b.dens_mol*b.enth_mol * (1000 * pyunits.J) / pyunits.kJ
 
     def define_state_vars(b):
         return {"flow_mol": b.flow_mol,
